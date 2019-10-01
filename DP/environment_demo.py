@@ -8,6 +8,7 @@ class Agent():
         self.actions = env.actions
 
     def policy(self, state):
+        # 配列の中からランダムに1つ選ぶ
         return random.choice(self.actions)
 
 
@@ -25,9 +26,12 @@ def main():
     for i in range(10):
         # Initialize position of agent.
         state = env.reset()
+        print("reset state")
+        print(state)
         total_reward = 0
         done = False
 
+        # goalにつくか、-1の外れの場所に着くまで続く
         while not done:
             action = agent.policy(state)
             next_state, reward, done = env.step(action)

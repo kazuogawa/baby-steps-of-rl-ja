@@ -1,3 +1,4 @@
+# Value Iteration,Policy Iterationどちらもあるらしい
 class Planner():
 
     def __init__(self, env):
@@ -11,37 +12,56 @@ class Planner():
     def plan(self, gamma=0.9, threshold=0.0001):
         raise Exception("Planner have to implements plan method.")
 
+    # 遷移関数T(s'|s,a)の実装
     def transitions_at(self, state, action):
+        # 状態と取れるactionを入れて、s'と遷移確率の配列を返す
         transition_probs = self.env.transit_func(state, action)
         for next_state in transition_probs:
             prob = transition_probs[next_state]
+            # 報酬と、完了かどうかを返す。doneはいらないから_になってる？
             reward, _ = self.env.reward_func(next_state)
+            # yield ... 一旦停止してprob,nex_state,rewardを返す。returnの終了しないバージョン
             yield prob, next_state, reward
 
+    # state_reward_dictは遷移先の価値を保存している配列が届く
     def dict_to_grid(self, state_reward_dict):
         grid = []
+        # gridにenvで定義したgridの全て0バージョンを代入している
+        # grid = [[0, 0, 0, 1],[0, 9, 0, -1],[0, 0, 0, 0]]の時のrow_lengthは3
         for i in range(self.env.row_length):
+            # grid = [[0, 0, 0, 1],[0, 9, 0, -1],[0, 0, 0, 0]]の時のcolumn_lengthは4
+            # [0] * 4だと[0,0,0,0]
             row = [0] * self.env.column_length
             grid.append(row)
+
+        #gridにそれぞれの場所の価値を入れている
         for s in state_reward_dict:
+            # 何をしているかわからない
             grid[s.row][s.column] = state_reward_dict[s]
 
         return grid
 
 
+# Plannerを継承している
 class ValuteIterationPlanner(Planner):
 
     def __init__(self, env):
         super().__init__(env)
 
+    # 処理の中心
+    # threshold...閾値
     def plan(self, gamma=0.9, threshold=0.0001):
+        # 初期化してresetをする処理
         self.initialize()
         actions = self.env.actions
+        #遷移先の価値を保存する変数
         V = {}
+        # 移動可能なstatesを繰り返す
         for s in self.env.states:
             # Initialize each state's expected reward.
             V[s] = 0
 
+        # 価値の更新幅deltaがthresholdを下回るまで繰り返される。
         while True:
             delta = 0
             self.log.append(self.dict_to_grid(V))
@@ -77,14 +97,19 @@ class PolicyIterationPlanner(Planner):
         actions = self.env.actions
         states = self.env.states
         for s in states:
+            # 移動可能なStateをKeyにする
             self.policy[s] = {}
+
             for a in actions:
                 # Initialize policy.
                 # At first, each action is taken uniformly.
+                # 初期値として状態sと行動aの組み合わせを行動数(これだと4)で割る。
                 self.policy[s][a] = 1 / len(actions)
 
+    # 戦略による価値の計算
     def estimate_by_policy(self, gamma, threshold):
         V = {}
+        # 行動が可能なstateで繰り返し
         for s in self.env.states:
             # Initialize each state's expected reward.
             V[s] = 0
@@ -93,6 +118,7 @@ class PolicyIterationPlanner(Planner):
             delta = 0
             for s in V:
                 expected_rewards = []
+                # stateをkeyとしたpolicy(確率?)を繰り返す
                 for a in self.policy[s]:
                     action_prob = self.policy[s][a]
                     r = 0
