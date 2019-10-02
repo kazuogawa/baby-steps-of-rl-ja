@@ -118,10 +118,11 @@ class PolicyIterationPlanner(Planner):
             delta = 0
             for s in V:
                 expected_rewards = []
-                # stateをkeyとしたpolicy(確率?)を繰り返す
+                # stateをkeyとして、行動できるaを繰り返す。こういう書き方あるんだなー。。勉強になる
                 for a in self.policy[s]:
                     action_prob = self.policy[s][a]
                     r = 0
+                    # s,aを渡してs'のactionで可能なs''の報酬を合計していく？
                     for prob, next_state, reward in self.transitions_at(s, a):
                         r += action_prob * prob * \
                              (reward + gamma * V[next_state])
