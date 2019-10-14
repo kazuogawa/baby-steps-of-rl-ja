@@ -114,22 +114,35 @@ class PolicyIterationPlanner(Planner):
             # Initialize each state's expected reward.
             V[s] = 0
 
+        # V_{¥pi}(s) = ¥sum_a ¥pi(a|s) ¥sum_{s'}T(s'|s,a)(R(s',s)+ ¥gammaV_{pi}(s'))
         while True:
             delta = 0
             for s in V:
                 expected_rewards = []
                 # stateをkeyとして、行動できるaを繰り返す。こういう書き方あるんだなー。。勉強になる
                 for a in self.policy[s]:
+                    # デフォだと全て0.25
+                    # ¥sum_a ¥pi(a|s)
                     action_prob = self.policy[s][a]
                     r = 0
                     # s,aを渡してs'のactionで可能なs''の報酬を合計していく？
                     for prob, next_state, reward in self.transitions_at(s, a):
-                        r += action_prob * prob * \
-                             (reward + gamma * V[next_state])
+                        # ¥sum_a ¥pi(a|s) * ¥sum_{s'} * (T(s'|s,a) * R(s',s) * ¥gammaV_{pi}(s'))
+                        r += action_prob * prob * (reward + gamma * V[next_state])
                     expected_rewards.append(r)
+                # sでの報酬和
                 value = sum(expected_rewards)
+                # deltaと絶対値(value - V[s])で大きい方をdeltaで上書き
                 delta = max(delta, abs(value - V[s]))
                 V[s] = value
+            print("delta")
+            print(delta)
+            print("threshold")
+            print(threshold)
+            # 一度でも閾値を下回ったらbreak。なんで？
+            # ずっとdeltaが減っていってる
+            # 隣が-1の外れ値のsが評価下がって全体のvalueが下がっていく。下がったsの隣の値も減っていくので
+            # 値がどれか収束した(変わらなくなった)段階で終わりになるのだと思う
             if delta < threshold:
                 break
 
@@ -145,8 +158,10 @@ class PolicyIterationPlanner(Planner):
 
         while True:
             update_stable = True
-            # Estimate expected rewards under current policy.
+            # Estimate expected rewards under current policy.(現在のポリシーで予想される報酬を見積もります
             V = self.estimate_by_policy(gamma, threshold)
+            print("V")
+            print(V)
             self.log.append(self.dict_to_grid(V))
 
             for s in states:
