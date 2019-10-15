@@ -2,21 +2,34 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-class ELAgent():
+# Qlearning
+class ELAgent:
 
     def __init__(self, epsilon):
+        # 状態評価のデータを持っている
         self.Q = {}
         self.epsilon = epsilon
         self.reward_log = []
 
+    # epsilon greedy と同じpolicy
     def policy(self, s, actions):
-        if np.random.random() < self.epsilon:
-            return np.random.randint(len(actions))
+        #if np.random.random() < self.epsilon:
+        #    # randint...引数の整数未満でランダムな整数を返す。np.random.randint(4)の場合は、0,1,2,3のどれかを返す
+        #    return np.random.randint(len(actions))
+        #else:
+        #    # Qの中身が存在していて、かつQ[s]の合計が0ではないこと
+        #    # ここのif elseの書き方もあまり納得がいかない・・・説明のためにわかりやすく書いているのか？
+        #    if s in self.Q and sum(self.Q[s]) != 0:
+        #        return np.argmax(self.Q[s])
+        #    else:
+        #        return np.random.randint(len(actions))
+
+        # 上の書き方がわかりにくいので修正。条件は等価なはず
+        # epsilonよりrandomが大きく、かつsが空ではなく、Q[s]が0ではない時は、Q[s]の中で一番大きいものを返す
+        if np.random.random() >= self.epsilon and s in self.Q and sum(self.Q[s]) != 0:
+            return np.argmax(self.Q[s])
         else:
-            if s in self.Q and sum(self.Q[s]) != 0:
-                return np.argmax(self.Q[s])
-            else:
-                return np.random.randint(len(actions))
+            return np.random.randint(len(actions))
 
     def init_log(self):
         self.reward_log = []
