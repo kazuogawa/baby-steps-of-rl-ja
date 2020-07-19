@@ -9,6 +9,7 @@ model = K.Sequential([
 ])
 
 # Make batch size = 3 data (dimension of x is 2).
+# 伝搬処理は複数件まとめて送ることが多いらしい。3件まとめたのがこんな感じ
 batch = np.random.rand(3, 2)
 
 y = model.predict(batch)
