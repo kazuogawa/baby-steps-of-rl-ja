@@ -167,6 +167,7 @@ class Trainer:
         return [self.experiences[i] for i in recent]
 
 
+# envのwrapperとして動作するもの
 class Observer:
 
     def __init__(self, env):
@@ -190,11 +191,12 @@ class Observer:
         n_state, reward, done, info = self._env.step(action)
         return self.transform(n_state), reward, done, info
 
+    # ちゃんと実装してね
     def transform(self, state):
         raise Exception("You have to implements transform method.")
 
 
-class Logger():
+class Logger:
 
     def __init__(self, log_dir="", dir_name=""):
         self.log_dir = log_dir
@@ -208,7 +210,7 @@ class Logger():
             if not os.path.exists(self.log_dir):
                 os.mkdir(self.log_dir)
 
-        self._callback = K.callbacks.TensorBoard(self.log_dir)
+        self._callback = tf.keras.callbacks.TensorBoard(self.log_dir)
 
     @property
     def writer(self):
