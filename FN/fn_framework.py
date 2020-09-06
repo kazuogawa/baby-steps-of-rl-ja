@@ -9,7 +9,8 @@ from tensorflow.python import keras as K
 from PIL import Image
 import matplotlib.pyplot as plt
 
-
+# namedtuple: dtoみたいなの作れる
+# state, action, reward, next_state, done_flag
 Experience = namedtuple("Experience",
                         ["s", "a", "r", "n_s", "d"])
 
@@ -34,6 +35,7 @@ class FNAgent():
         agent.initialized = True
         return agent
 
+    # 下記3つは継承先に任せる
     def initialize(self, experiences):
         raise Exception("You have to implements estimate method.")
 
@@ -71,15 +73,18 @@ class FNAgent():
                 print("Get reward {}.".format(episode_reward))
 
 
-class Trainer():
+class Trainer:
 
     def __init__(self, buffer_size=1024, batch_size=32,
                  gamma=0.9, report_interval=10, log_dir=""):
+        # 1回の学習のために取り出すデータのsize
         self.buffer_size = buffer_size
+        # experience replayのsize
         self.batch_size = batch_size
         self.gamma = gamma
         self.report_interval = report_interval
         self.logger = Logger(log_dir, self.trainer_name)
+        # Agentの行動履歴を格納する場所
         self.experiences = deque(maxlen=buffer_size)
         self.training = False
         self.training_count = 0
@@ -162,7 +167,7 @@ class Trainer():
         return [self.experiences[i] for i in recent]
 
 
-class Observer():
+class Observer:
 
     def __init__(self, env):
         self._env = env
