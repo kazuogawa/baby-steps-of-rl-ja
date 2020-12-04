@@ -3,6 +3,7 @@ import numpy as np
 from collections import defaultdict, Counter
 import gym
 from gym.envs.registration import register
+# id名がenvに存在しているかを確認している？
 register(id="FrozenLakeEasy-v0", entry_point="gym.envs.toy_text:FrozenLakeEnv",
          kwargs={"is_slippery": False})
 
@@ -14,6 +15,7 @@ class DynaAgent():
         self.actions = []
         self.value = None
 
+    # Q-learningとほぼ同じ
     def policy(self, state):
         if np.random.random() < self.epsilon:
             return np.random.randint(len(self.actions))
@@ -23,6 +25,7 @@ class DynaAgent():
             else:            
                 return np.argmax(self.value[state])
 
+    # Q-learningとほぼ同じ
     def learn(self, env, episode_count=3000, gamma=0.9, learning_rate=0.1,
               steps_in_model=-1, report_interval=100):
         self.actions = list(range(env.action_space.n))
@@ -43,7 +46,10 @@ class DynaAgent():
                 estimated = self.value[s][a]
                 self.value[s][a] += learning_rate * (gain - estimated)
 
+                # modelを使った追加学習。実環境で得られたstate, action, reward, next_stateの情報でmodelを学習させ、step_in_modelの回数だけモデルを使った学習を行う
+                # step_in_modelはargsで渡された定数？
                 if steps_in_model > 0:
+                    # 遷移した回数をカウントし、報酬を合計しているだけ
                     model.update(s, a, reward, n_state)
                     for s, a, r, n_s in model.simulate(steps_in_model):
                         gain = r + gamma * max(self.value[n_s])

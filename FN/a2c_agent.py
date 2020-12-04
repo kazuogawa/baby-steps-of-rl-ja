@@ -3,7 +3,7 @@ import argparse
 from collections import deque
 import numpy as np
 import tensorflow as tf
-from tensorflow.python import keras as K
+from tensorflow import keras as K
 from PIL import Image
 import gym
 import gym_ple
@@ -21,7 +21,7 @@ class ActorCriticAgent(FNAgent):
         actions = list(range(env.action_space.n))
         agent = cls(epsilon, actions)
         agent.model = K.models.load_model(model_path, custom_objects={
-                        "SampleLayer": SampleLayer})
+            "SampleLayer": SampleLayer})
         agent.initialized = True
         return agent
 
@@ -34,6 +34,7 @@ class ActorCriticAgent(FNAgent):
     def make_model(self, feature_shape):
         normal = K.initializers.glorot_normal()
         model = K.Sequential()
+        # TODO: こういうDeepの層決めって何で決めているんだろう・・・
         model.add(K.layers.Conv2D(
             32, kernel_size=8, strides=4, padding="same",
             input_shape=feature_shape,
@@ -51,9 +52,11 @@ class ActorCriticAgent(FNAgent):
         actor_layer = K.layers.Dense(len(self.actions),
                                      kernel_initializer=normal)
         action_evals = actor_layer(model.output)
+        # actionsをサンプリングしている？
         actions = SampleLayer()(action_evals)
 
         critic_layer = K.layers.Dense(1, kernel_initializer=normal)
+        # 状態価値の出力をしている
         values = critic_layer(model.output)
 
         self.model = K.Model(inputs=model.input,
@@ -61,13 +64,23 @@ class ActorCriticAgent(FNAgent):
 
     def set_updater(self, optimizer,
                     value_loss_weight=1.0, entropy_weight=0.1):
+        """
+        パラメータの更新処理
+        :param optimizer:
+        :param value_loss_weight:
+        :param entropy_weight:
+        :return:
+        """
         actions = tf.placeholder(shape=(None), dtype="int32")
         rewards = tf.placeholder(shape=(None), dtype="float32")
 
         _, action_evals, values = self.model.output
 
+        # log πθ(a|s)を求めているらしい
+        # 行動評価(action_evals)から行動確率を計算し、
+        # その中から実際にとった行動(actions)の確率をとり、対数を撮った後に最大化問題を最小化問題にするためマイナスかける
         neg_logs = tf.nn.sparse_softmax_cross_entropy_with_logits(
-                        logits=action_evals, labels=actions)
+            logits=action_evals, labels=actions)
         advantages = rewards - values
 
         policy_loss = tf.reduce_mean(neg_logs * tf.nn.softplus(advantages))
@@ -81,15 +94,15 @@ class ActorCriticAgent(FNAgent):
                                         params=self.model.trainable_weights)
 
         self._updater = K.backend.function(
-                                        inputs=[self.model.input,
-                                                actions, rewards],
-                                        outputs=[loss,
-                                                 policy_loss,
-                                                 tf.reduce_mean(neg_logs),
-                                                 tf.reduce_mean(advantages),
-                                                 value_loss,
-                                                 action_entropy],
-                                        updates=updates)
+            inputs=[self.model.input,
+                    actions, rewards],
+            outputs=[loss,
+                     policy_loss,
+                     tf.reduce_mean(neg_logs),
+                     tf.reduce_mean(advantages),
+                     value_loss,
+                     action_entropy],
+            updates=updates)
 
     def categorical_entropy(self, logits):
         """
@@ -118,6 +131,9 @@ class ActorCriticAgent(FNAgent):
 
 
 class SampleLayer(K.layers.Layer):
+    """
+        行動評価(action_evals)から行動actionsを選択する層
+    """
 
     def __init__(self, **kwargs):
         self.output_dim = 1  # sample one action from evaluations
@@ -128,6 +144,7 @@ class SampleLayer(K.layers.Layer):
 
     def call(self, x):
         noise = tf.random_uniform(tf.shape(x))
+        # noiseを載せることで過学習を防いでいるらしい
         return tf.argmax(x - tf.log(-tf.log(noise)), axis=1)
 
     def compute_output_shape(self, input_shape):
@@ -310,7 +327,7 @@ def main(play, is_test):
     else:
         trainer.train(obs, test_mode=is_test)
 
-
+# policy gradient系は安定しないらしいが、改善策はあるらしい
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="A2C Agent")
     parser.add_argument("--play", action="store_true",

@@ -23,13 +23,21 @@ class ValueFunctionAgent(FNAgent):
         return agent
 
     def initialize(self, experiences):
+        # 状態の正規化を行うもの
         scaler = StandardScaler()
+        # これが価値関数らしい
+        # MLPregressorはNNによる値の推定が可能らしい。nodeが10の隠れ層を2つ重ねたNN
+        # 状態を受け取り、状態における各行動の価値を返す。
+        # cart poleだとcartの位置、加速度、ボールの角度、角速度の4つを受け取り、各行動(右or左)の価値を返す
         estimator = MLPRegressor(hidden_layer_sizes=(10, 10), max_iter=1)
+        # pipelineでmodelになるらしい
         self.model = Pipeline([("scaler", scaler), ("estimator", estimator)])
-
+        # vstack=listのextendsみたいなやつ
         states = np.vstack([e.s for e in experiences])
         self.model.named_steps["scaler"].fit(states)
 
+        # 学習する前に予測すると例外が発生するscikit-learnの仕様を回避するものらしいw
+        # いったん1件だけデータ入れて学習しているものらしい
         # Avoid the predict before fit.
         self.update([experiences[0]], gamma=0)
         self.initialized = True
@@ -40,35 +48,61 @@ class ValueFunctionAgent(FNAgent):
         return estimated
 
     def _predict(self, states):
+        """
+        予測
+        :param states:
+        :return:
+        """
         if self.initialized:
             predicteds = self.model.predict(states)
         else:
+            # 学習前の場合、,randomを返すようになっているらしい
             size = len(self.actions) * len(states)
             predicteds = np.random.uniform(size=size)
             predicteds = predicteds.reshape((-1, len(self.actions)))
         return predicteds
 
     def update(self, experiences, gamma):
+        """
+        Q-learnと同じ処理
+        :param experiences:
+            e.s = 状態
+            e.n_s = 次の状態
+            e.a = 行動。leftとかrightとか入る
+            略しすぎて何かわからん
+        :param gamma:
+        :return:
+        """
         states = np.vstack([e.s for e in experiences])
         n_states = np.vstack([e.n_s for e in experiences])
 
+        # 予測した結果
+        # estimateds[0][e.a] = reward みたいな感じで入っている
         estimateds = self._predict(states)
         future = self._predict(n_states)
 
         for i, e in enumerate(experiences):
             reward = e.r
+            # 次の遷移先がある場合
             if not e.d:
+                # 次の遷移先の中で価値が最大になるものをrewardに追加
                 reward += gamma * np.max(future[i])
+            # reward更新
             estimateds[i][e.a] = reward
 
+        # dictを単純にnp.arrayで包んだだけ？
         estimateds = np.array(estimateds)
+        # TODO: これ何しているのか不明
         states = self.model.named_steps["scaler"].transform(states)
+        # 状態と更新した価値関数を更新している。平均時上誤差を計算してそれが小さくなるようにNNのパラメータ調整
+        # = TD誤差の再消化するためのパラメータを調整している
         self.model.named_steps["estimator"].partial_fit(states, estimateds)
 
 
 class CartPoleObserver(Observer):
 
     def transform(self, state):
+        # 4つの値を1行4列に成形
         return np.array(state).reshape((1, -1))
 
 
@@ -76,6 +110,7 @@ class ValueFunctionTrainer(Trainer):
 
     def train(self, env, episode_count=220, epsilon=0.1, initial_count=-1,
               render=False):
+        # CartPoleだったら右か左かだけ？
         actions = list(range(env.action_space.n))
         agent = ValueFunctionAgent(epsilon, actions)
         self.train_loop(env, agent, episode_count, initial_count, render)
@@ -103,9 +138,11 @@ def main(play):
     trainer = ValueFunctionTrainer()
     path = trainer.logger.path_of("value_function_agent.pkl")
 
+    # 学習したagentを実行する
     if play:
         agent = ValueFunctionAgent.load(env, path)
         agent.play(env)
+    # 学習
     else:
         trained = trainer.train(env)
         trainer.logger.plot("Rewards", trainer.reward_log,

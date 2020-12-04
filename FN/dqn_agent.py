@@ -2,7 +2,7 @@ import random
 import argparse
 from collections import deque
 import numpy as np
-from tensorflow.python import keras as K
+from tensorflow import keras as K
 from PIL import Image
 import gym
 import gym_ple
@@ -26,6 +26,7 @@ class DeepQNetworkAgent(FNAgent):
     def make_model(self, feature_shape):
         normal = K.initializers.glorot_normal()
         model = K.Sequential()
+        # 3層作って、Flattenして伝播
         model.add(K.layers.Conv2D(
             32, kernel_size=8, strides=4, padding="same",
             input_shape=feature_shape, kernel_initializer=normal,
@@ -49,11 +50,14 @@ class DeepQNetworkAgent(FNAgent):
     def estimate(self, state):
         return self.model.predict(np.array([state]))[0]
 
+    # 画像ってどうやって物のベクトル量っているんだろう
     def update(self, experiences, gamma):
         states = np.array([e.s for e in experiences])
         n_states = np.array([e.n_s for e in experiences])
 
         estimateds = self.model.predict(states)
+        # 遷移先の価値をここで計算._teacher_modelはupdate_teacherが実行されるまで固定
+        # 一定期間固定されたパラメータから産出する手法をFixed Target Q-Networkという
         future = self._teacher_model.predict(n_states)
 
         for i, e in enumerate(experiences):
@@ -70,6 +74,10 @@ class DeepQNetworkAgent(FNAgent):
 
 
 class DeepQNetworkAgentTest(DeepQNetworkAgent):
+    """
+    学習に時間がかかるので、無駄な時間をかけないようにテストは描こうね
+    make_model以外のtestができるらしいがわからない・・・
+    """
 
     def __init__(self, epsilon, actions):
         super().__init__(epsilon, actions)
@@ -95,6 +103,7 @@ class CatcherObserver(Observer):
         self._frames = deque(maxlen=frame_count)
 
     def transform(self, state):
+        # 画像をグレースケールにして、0-1の間の値に変換しているいらしい
         grayed = Image.fromarray(state).convert("L")
         resized = grayed.resize((self.width, self.height))
         resized = np.array(resized).astype("float")
@@ -117,6 +126,19 @@ class DeepQNetworkTrainer(Trainer):
                  gamma=0.99, initial_epsilon=0.5, final_epsilon=1e-3,
                  learning_rate=1e-3, teacher_update_freq=3, report_interval=10,
                  log_dir="", file_name=""):
+        """
+
+        :param buffer_size: 画面からの学習では大きなリソースを使うため、初期値が大きい
+        :param batch_size:
+        :param gamma:
+        :param initial_epsilon:
+        :param final_epsilon:
+        :param learning_rate:
+        :param teacher_update_freq:
+        :param report_interval:
+        :param log_dir:
+        :param file_name:
+        """
         super().__init__(buffer_size, batch_size, gamma,
                          report_interval, log_dir)
         self.file_name = file_name if file_name else "dqn_agent.h5"
@@ -159,6 +181,7 @@ class DeepQNetworkTrainer(Trainer):
 
     def episode_end(self, episode, step_count, agent):
         reward = sum([e.r for e in self.get_recent(step_count)])
+        # 誤差
         self.loss = self.loss / step_count
         self.reward_log.append(reward)
         if self.training:
@@ -171,6 +194,7 @@ class DeepQNetworkTrainer(Trainer):
             if self.is_event(self.training_count, self.teacher_update_freq):
                 agent.update_teacher()
 
+            # episodeが経つごとにepsilonの値を減らす
             diff = (self.initial_epsilon - self.final_epsilon)
             decay = diff / self.training_episode
             agent.epsilon = max(agent.epsilon - decay, self.final_epsilon)

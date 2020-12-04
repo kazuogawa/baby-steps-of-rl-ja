@@ -4,6 +4,7 @@ import re
 from collections import namedtuple
 from collections import deque
 import numpy as np
+# tfがversion上がってからSummaryがつかえん。引数がかわってる・・・
 import tensorflow as tf
 from tensorflow.python import keras as K
 from PIL import Image

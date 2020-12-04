@@ -11,8 +11,10 @@ class Actor(ELAgent):
         nrow = env.observation_space.n
         ncol = env.action_space.n
         self.actions = list(range(env.action_space.n))
+        # 各行動を取る確率が等しくなるように初期化
         self.Q = np.random.uniform(0, 1, nrow * ncol).reshape((nrow, ncol))
 
+    # 複数の値を確率値にしてくれる。複数の値を合計したら1になる値に変換
     def softmax(self, x):
         return np.exp(x) / np.sum(np.exp(x), axis=0)
 
@@ -22,14 +24,14 @@ class Actor(ELAgent):
         return a[0]
 
 
-class Critic():
+class Critic:
 
     def __init__(self, env):
         states = env.observation_space.n
         self.V = np.zeros(states)
 
 
-class ActorCritic():
+class ActorCritic:
 
     def __init__(self, actor_class, critic_class):
         self.actor_class = actor_class
@@ -49,11 +51,16 @@ class ActorCritic():
                     env.render()
                 a = actor.policy(s)
                 n_state, reward, done, info = env.step(a)
-
+                # stepを実行した時にもらえた報酬(reward)と、次の状態のcritic(状態価値)を使ってgain(利得)を作る
+                # 状態価値が高いところに移動したことも利得に含まれるのか。いいね
                 gain = reward + gamma * critic.V[n_state]
+                # step実行前の状態の状態価値を取り出す
                 estimated = critic.V[s]
+                # 利得から実行前の状態価値を引くと、td誤差になる
                 td = gain - estimated
+                # learning_rateで小さくしたtd誤差をactorに加算する。(利得が小さかったらQも小さくなる)
                 actor.Q[s][a] += learning_rate * td
+                # criticにも
                 critic.V[s] += learning_rate * td
                 s = n_state
 

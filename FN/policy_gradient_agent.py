@@ -6,7 +6,7 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.externals import joblib
 import tensorflow as tf
-from tensorflow.python import keras as K
+from tensorflow import keras as K
 import gym
 from fn_framework import FNAgent, Trainer, Observer, Experience
 
@@ -56,6 +56,7 @@ class PolicyGradientAgent(FNAgent):
         action_probs = self.model.output
         selected_action_probs = tf.reduce_sum(one_hot_actions * action_probs,
                                               axis=1)
+        # log(0)は無限大に発散するのでclipping
         clipped = tf.clip_by_value(selected_action_probs, 1e-10, 1.0)
         loss = - tf.log(clipped) * rewards
         loss = tf.reduce_mean(loss)
